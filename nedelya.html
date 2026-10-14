@@ -276,11 +276,26 @@ function dueBroken(t){
 }
 
 function coll(name){return S.db.collection(name)}
+// Понятное объяснение ошибки базы + технический код, чтобы можно было найти причину
+function errText(e){
+  const code=(e&&e.code)||"unknown";
+  const why={
+    "permission-denied":"база не разрешает запись: проверь вкладку Rules в Firebase",
+    "unavailable":"нет связи с базой: проверь интернет или попробуй с VPN",
+    "invalid-argument":"в деле есть недопустимые данные",
+    "not-found":"база не найдена: проверь, что она называется (default)",
+    "failed-precondition":"база ещё не готова или выключена",
+    "resource-exhausted":"закончился бесплатный лимит на сегодня",
+    "unauthenticated":"база требует входа",
+  }[code]||"неизвестная ошибка";
+  return `Не сохранилось: ${why}. Код: ${code}${e&&e.message?" — "+String(e.message).slice(0,160):""}`;
+}
+function saveError(e){console.error(e);const m=errText(e);toast("Не сохранилось");showError(m)}
 async function saveTask(t){
   const {id,virtual,...body}=t;
   if(S.local){S.tasks.set(key(t.owner,id),{...body,id});render();return}
   try{await coll("tasks").doc(id).set(body)}
-  catch(e){toast("Не сохранилось. Проверь интернет и попробуй ещё раз")}
+  catch(e){saveError(e)}
 }
 async function removeTask(t){
   if(t.seriesId){ // экземпляр повтора: помечаем пропущенным, чтобы он не появился снова
@@ -292,7 +307,7 @@ async function removeTask(t){
 async function saveSeries(s){
   const {id,...body}=s;
   if(S.local){S.series.set(id,{...s});render();return}
-  try{await coll("series").doc(id).set(body)}catch(e){toast("Не сохранилось. Проверь интернет и попробуй ещё раз")}
+  try{await coll("series").doc(id).set(body)}catch(e){saveError(e)}
 }
 function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
@@ -691,7 +706,11 @@ function lockScreen(id){
   if(!window.firebase||!cfg.firebase||String(cfg.firebase.apiKey).includes("ВСТАВЬ")){goLocal("База ещё не подключена: вставь настройки Firebase в начало файла (шаг 2 инструкции).");return}
 
   firebase.initializeApp(cfg.firebase);
-  const root=firebase.firestore().collection("planners").doc(cfg.space);
+  const fs=firebase.firestore();
+  // Long polling вместо потокового соединения: надёжнее внутри Telegram, за VPN и прокси.
+  // ignoreUndefinedProperties: пустые поля не ломают сохранение.
+  try{fs.settings({experimentalForceLongPolling:true,ignoreUndefinedProperties:true,merge:true})}catch(e){console.warn(e)}
+  const root=fs.collection("planners").doc(cfg.space);
   S.db=root;
   S.me="tg"+tgUser.id;
   const myName=[tgUser.first_name,tgUser.last_name].filter(Boolean).join(" ")||"Я";
@@ -699,7 +718,10 @@ function lockScreen(id){
   render();
 
   root.collection("members").doc(S.me).set({name:myName,seenAt:Date.now()},{merge:true})
-    .catch(()=>showError("Не получается подключиться к базе. Проверь интернет и правила доступа в Firebase (шаг 1 инструкции)."));
+    .then(()=>{S.connected=true})
+    .catch(e=>{console.error(e);showError(errText(e).replace("Не сохранилось","Нет связи с базой"))});
+  // Если за 15 секунд база так и не ответила — скорее всего, её блокирует сеть
+  setTimeout(()=>{if(!S.connected&&$("notice").hidden)showError("База не отвечает уже 15 секунд. Скорее всего, сеть блокирует сервисы Google: попробуй с VPN или другим интернетом (Wi-Fi / мобильный).")},15000);
   root.collection("members").onSnapshot(snap=>{
     snap.forEach(d=>{S.members.add(d.id);S.profiles[d.id]={name:(d.data()||{}).name||""}});
     render();
@@ -708,7 +730,7 @@ function lockScreen(id){
     S.tasks.clear();
     snap.forEach(doc=>{const b=doc.data();if(b&&b.owner)S.tasks.set(key(b.owner,doc.id),{...b,id:doc.id})});
     render();
-  },()=>showError("Нет доступа к делам. Проверь правила доступа в Firebase (шаг 1 инструкции)."));
+  },e=>{console.error(e);showError(errText(e).replace("Не сохранилось","Не читаются дела"))});
   root.collection("series").onSnapshot(snap=>{
     S.series.clear();
     snap.forEach(doc=>{const b=doc.data();if(b&&b.owner)S.series.set(doc.id,{...b,id:doc.id})});
