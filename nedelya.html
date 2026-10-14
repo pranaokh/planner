@@ -15,7 +15,10 @@ window.PLANNER_CONFIG = {
     appId: "1:771675764406:web:5e5be8d25afaef76a65817"
   },
   // Секретное название вашего планера. Не публикуй его.
-  space: "nedelya-z3c3otoh"
+  space: "nedelya-z3c3otoh",
+  // Кому можно открывать планер: Telegram-ID через запятую, каждый в кавычках.
+  // Пример: ["123456789", "987654321"]. Пустой список [] = пускать всех.
+  allowed: ["ВСТАВЬ_СВОЙ_ID"]
 };
 </script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -661,6 +664,17 @@ function goLocal(msg){
   const n=$("notice");n.hidden=false;n.textContent=msg;render();
 }
 function showError(msg){const n=$("notice");n.hidden=false;n.textContent=msg}
+function lockScreen(id){
+  const wrap=document.querySelector(".wrap");
+  const idBox=h("span",{class:"mono",style:"font-size:20px;user-select:all",text:id});
+  wrap.replaceChildren(h("div",{class:"panel",style:"max-width:440px;margin:15vh auto 0;text-align:center;align-items:center"},
+    h("h1",{text:"Это личный планер"}),
+    h("p",{class:"muted",style:"margin:0",text:"Открыть его могут только те, кого добавила владелица. Если тебя должны пустить, отправь ей этот номер:"}),
+    idBox,
+    h("button",{class:"ghost",text:"Скопировать номер",onclick:async e=>{
+      try{await navigator.clipboard.writeText(id);e.target.textContent="Скопировано"}
+      catch(_){const r=document.createRange();r.selectNodeContents(idBox);const s=getSelection();s.removeAllRanges();s.addRange(r)}}})));
+}
 (function init(){
   const tg=window.Telegram&&window.Telegram.WebApp;
   if(tg){
@@ -672,6 +686,8 @@ function showError(msg){const n=$("notice");n.hidden=false;n.textContent=msg}
   const tgUser=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
   const cfg=window.PLANNER_CONFIG||{};
   if(!tgUser){goLocal("Открой планер через бота в Telegram, чтобы дела сохранялись. Сейчас это пробный режим: всё пропадёт после перезагрузки.");return}
+  const allowed=(cfg.allowed||[]).map(String).filter(x=>/^\d+$/.test(x));
+  if(allowed.length&&!allowed.includes(String(tgUser.id))){lockScreen(String(tgUser.id));return}
   if(!window.firebase||!cfg.firebase||String(cfg.firebase.apiKey).includes("ВСТАВЬ")){goLocal("База ещё не подключена: вставь настройки Firebase в начало файла (шаг 2 инструкции).");return}
 
   firebase.initializeApp(cfg.firebase);
