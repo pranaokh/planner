@@ -25,26 +25,26 @@ window.PLANNER_CONFIG = {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Unbounded:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Jost:wght@500;600;700&display=swap">
 <style>
 /* Layout: шапка с навигацией по неделе → 7 колонок дней (на телефоне — список дней) / вкладка «Итоги» */
 :root{
-  --bg:#ECEFF3; --surface:#FFFFFF; --sunk:#E2E7ED; --ink:#18212C; --muted:#5D6977; --line:#D3DAE2;
-  --accent:#0E6C67; --accent-ink:#FFFFFF; --today:#DDEFEC; --warn:#B4541A; --ok:#2B8A57;
-  --s-work:#3854C8; --s-home:#B9800F; --s-sport:#2B8A57; --s-love:#C93D72; --s-reno:#76624C;
-  --display:"Unbounded","Golos Text",system-ui,sans-serif;
+  --bg:#FFFFFF; --surface:#FFFFFF; --sunk:#EFDED4; --ink:#22100F; --muted:#5C3D38; --line:#A88D83; --line-soft:#DCC5BA; --edge:#8A6A60;
+  --accent:#7B2D3B; --accent-ink:#FFFFFF; --today:#EFDED4; --warn:#9E3420; --ok:#3F716C;
+  --s-work:#7B2D3B; --s-home:#B07614; --s-sport:#5E8C88; --s-love:#D96A5C; --s-reno:#8C6A4F;
+  --display:"Jost","Golos Text",system-ui,sans-serif;
   --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --r:10px;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
-  --bg:#11151B; --surface:#1A2029; --sunk:#151A21; --ink:#E5EAF0; --muted:#97A3B1; --line:#2B343F;
-  --accent:#4DBDB5; --accent-ink:#0B1A19; --today:#17302E; --warn:#E28B52; --ok:#5CC48A;
-  --s-work:#7D93F0; --s-home:#E2B04A; --s-sport:#5CC48A; --s-love:#EE7BA6; --s-reno:#B8A48C; color-scheme:dark}}
+  --bg:#160A0F; --surface:#41232D; --sunk:#2B1720; --ink:#FBEBDD; --muted:#D2B3AA; --line:#8A6470; --line-soft:#4A2C36; --edge:#B8958C;
+  --accent:#E2A43D; --accent-ink:#24121A; --today:#4A2229; --warn:#F08A6E; --ok:#8DBDB7;
+  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#11151B; --surface:#1A2029; --sunk:#151A21; --ink:#E5EAF0; --muted:#97A3B1; --line:#2B343F;
-  --accent:#4DBDB5; --accent-ink:#0B1A19; --today:#17302E; --warn:#E28B52; --ok:#5CC48A;
-  --s-work:#7D93F0; --s-home:#E2B04A; --s-sport:#5CC48A; --s-love:#EE7BA6; --s-reno:#B8A48C; color-scheme:dark}
+  --bg:#160A0F; --surface:#41232D; --sunk:#2B1720; --ink:#FBEBDD; --muted:#D2B3AA; --line:#8A6470; --line-soft:#4A2C36; --edge:#B8958C;
+  --accent:#E2A43D; --accent-ink:#24121A; --today:#4A2229; --warn:#F08A6E; --ok:#8DBDB7;
+  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -57,8 +57,8 @@ button{cursor:pointer}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;justify-content:space-between}
-h1{font:700 22px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
-.sub{color:var(--muted);font-size:13px}
+h1{font:700 26px/1.05 var(--display);margin:0;letter-spacing:.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
 .seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px}
 .seg button{border:0;background:none;padding:6px 12px;border-radius:999px;font-size:13px;color:var(--muted)}
@@ -78,9 +78,9 @@ h1{font:700 22px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:bal
 .day.is-today{background:var(--today)}
 .day.drop{border-color:var(--accent)}
 .day-head{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
-.day-name{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.day-name{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
 .day-num{font:700 20px var(--display)}
-.day-load{font-size:11px;color:var(--muted)}
+.day-load{font-size:12px;color:var(--muted)}
 .add-in-day{border:1px dashed var(--line);background:none;border-radius:8px;padding:6px;color:var(--muted);font-size:13px;margin-top:auto}
 .add-in-day:hover{color:var(--ink);border-color:var(--muted)}
 
@@ -93,7 +93,7 @@ h1{font:700 22px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:bal
 .card.done .check{background:var(--ok);border-color:var(--ok);color:var(--surface)}
 .card.doing .check{border-color:var(--accent);border-style:dashed}
 .t-title{font-weight:500;line-height:1.3;overflow-wrap:anywhere}
-.t-meta{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:12px;color:var(--muted)}
+.t-meta{grid-column:2;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;font-size:13px;color:var(--muted)}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
 .tag{display:inline-flex;align-items:center;gap:5px}
 .moved{color:var(--warn);font-weight:600}
@@ -101,7 +101,7 @@ h1{font:700 22px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:bal
 .who-pair{display:inline-flex}
 .who-pair .who+.who{margin-left:-6px}
 .late-btn{grid-column:2;justify-self:start;border:1px solid var(--line);background:none;border-radius:999px;font-size:12px;padding:2px 8px;color:var(--warn)}
-.empty-day{font-size:12px;color:var(--muted);padding:2px}
+.empty-day{font-size:13px;color:var(--muted);padding:2px}
 
 @media (max-width:760px){
   .week-scroll{overflow:visible}
@@ -144,7 +144,7 @@ h1{font:700 22px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:bal
 .legend i.p{opacity:.28}
 
 /* Модалка */
-.scrim{position:fixed;inset:0;background:rgb(10 14 20/.45);display:grid;place-items:center;padding:16px;z-index:10}
+.scrim{position:fixed;inset:0;background:rgb(58 26 32/.45);display:grid;place-items:center;padding:16px;z-index:10}
 .sheet{background:var(--surface);border-radius:14px;width:min(520px,100%);max-height:calc(100% - 32px);overflow:auto;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 50px rgb(0 0 0/.3)}
 .sheet h3{font:500 17px var(--display);margin:0}
 .field{display:flex;flex-direction:column;gap:6px}
@@ -161,7 +161,28 @@ textarea{min-height:64px;resize:vertical}
 .ro-note{font-size:13px;color:var(--muted);background:var(--sunk);border-radius:8px;padding:8px 10px}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;font-size:14px;z-index:20}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
-.who.letter{display:inline-grid;place-items:center;font-size:10px;font-weight:600;color:#fff}
+
+/* ===== Контраст: видимые границы и понятные состояния (WCAG: текст ≥4.5, границы элементов ≥3) ===== */
+.seg{background:transparent;border:1px solid var(--edge);padding:2px}
+.seg button{color:var(--ink);font-weight:500}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+.icon-btn,.ghost,.danger,.late-btn{border-color:var(--edge)}
+.ghost{font-weight:500}
+.add-in-day{border-color:var(--edge);color:var(--ink)}
+.add-in-day:hover{background:var(--surface)}
+.chip{border-color:var(--edge)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500}
+.chip[aria-pressed="true"] .dot{box-shadow:0 0 0 2px var(--accent-ink)}
+input[type=text],input[type=date],input[type=time],input[type=number],select,textarea{background:var(--surface);border-color:var(--edge)}
+.check{border-color:var(--edge)}
+.card{box-shadow:0 1px 2px rgb(40 12 16/.12)}
+.card.done{opacity:1}
+.card.done .t-title{color:var(--muted)}
+.day,.inbox{border:1px solid var(--line-soft)}
+.day.is-today{border:2px solid var(--accent);padding:9px}
+.notice{border-color:var(--edge);color:var(--ink)}
+.field>label,.field>.lbl{color:var(--ink);opacity:.8}
+.who.letter{display:inline-grid;place-items:center;font-size:10px;font-weight:600;color:var(--accent-ink)}
 </style>
 </head>
 <body>
