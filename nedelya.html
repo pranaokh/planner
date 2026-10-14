@@ -23,7 +23,7 @@ window.PLANNER_CONFIG = {
 </script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Unbounded:wght@500;700&display=swap">
 <style>
@@ -294,6 +294,7 @@ function saveError(e){console.error(e);const m=errText(e);toast("Не сохра
 async function saveTask(t){
   const {id,virtual,...body}=t;
   if(S.local){S.tasks.set(key(t.owner,id),{...body,id});render();return}
+  if(!S.db){toast("База не подключена");return}
   try{await coll("tasks").doc(id).set(body)}
   catch(e){saveError(e)}
 }
@@ -705,6 +706,10 @@ function lockScreen(id){
   if(allowed.length&&!allowed.includes(String(tgUser.id))){lockScreen(String(tgUser.id));return}
   if(!window.firebase||!cfg.firebase||String(cfg.firebase.apiKey).includes("ВСТАВЬ")){goLocal("База ещё не подключена: вставь настройки Firebase в начало файла (шаг 2 инструкции).");return}
 
+  if(typeof firebase.firestore!=="function"){showError("Не загрузилась часть Firebase, отвечающая за базу. Проверь интернет или попробуй с VPN, затем открой планер заново.");return}
+  try{connect(tgUser,cfg)}catch(e){console.error(e);showError("Не получилось подключиться к базе: "+(e&&e.message||e))}
+})();
+function connect(tgUser,cfg){
   firebase.initializeApp(cfg.firebase);
   const fs=firebase.firestore();
   // Long polling вместо потокового соединения: надёжнее внутри Telegram, за VPN и прокси.
@@ -736,7 +741,7 @@ function lockScreen(id){
     snap.forEach(doc=>{const b=doc.data();if(b&&b.owner)S.series.set(doc.id,{...b,id:doc.id})});
     render();
   },()=>{});
-})();
+}
 })();
 </script>
 </body>
