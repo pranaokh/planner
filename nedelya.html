@@ -16,9 +16,13 @@ window.PLANNER_CONFIG = {
   },
   // Секретное название вашего планера. Не публикуй его.
   space: "nedelya-z3c3otoh",
-  // Кому можно открывать планер: Telegram-ID через запятую, каждый в кавычках.
-  // Пример: ["123456789", "987654321"]. Пустой список [] = пускать всех.
-  allowed: ["273709982"]
+  // Кто пользуется планером: Telegram-ID и имя для вкладки.
+  // Открыть планер могут только люди с вписанным ID.
+  // Чтобы пустить Алину, впиши её номер в кавычки вместо пустых: id: "123456789"
+  people: [
+    { id: "273709982", name: "Настя" },
+    { id: "", name: "Алина" }
+  ]
 };
 </script>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -31,7 +35,7 @@ window.PLANNER_CONFIG = {
 :root{
   --bg:#FFFFFF; --surface:#FFFFFF; --sunk:#EFDED4; --ink:#22100F; --muted:#5C3D38; --line:#A88D83; --line-soft:#DCC5BA; --edge:#8A6A60;
   --accent:#7B2D3B; --accent-ink:#FFFFFF; --today:#EFDED4; --warn:#9E3420; --ok:#3F716C;
-  --s-work:#7B2D3B; --s-home:#B07614; --s-sport:#5E8C88; --s-love:#D96A5C; --s-reno:#8C6A4F;
+  --s-work:#7B2D3B; --s-home:#B07614; --s-sport:#5E8C88; --s-love:#D96A5C; --s-reno:#8C6A4F; --s-friends:#3D6A8C; --s-self:#7A4A7E;
   --display:"Jost","Golos Text",system-ui,sans-serif;
   --body:"Golos Text",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
@@ -40,11 +44,11 @@ window.PLANNER_CONFIG = {
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#160A0F; --surface:#41232D; --sunk:#2B1720; --ink:#FBEBDD; --muted:#D2B3AA; --line:#8A6470; --line-soft:#4A2C36; --edge:#B8958C;
   --accent:#E2A43D; --accent-ink:#24121A; --today:#4A2229; --warn:#F08A6E; --ok:#8DBDB7;
-  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; color-scheme:dark}}
+  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; --s-friends:#8FB4D4; --s-self:#C9A0CF; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#160A0F; --surface:#41232D; --sunk:#2B1720; --ink:#FBEBDD; --muted:#D2B3AA; --line:#8A6470; --line-soft:#4A2C36; --edge:#B8958C;
   --accent:#E2A43D; --accent-ink:#24121A; --today:#4A2229; --warn:#F08A6E; --ok:#8DBDB7;
-  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; color-scheme:dark}
+  --s-work:#E58A9A; --s-home:#E8B85A; --s-sport:#8DBDB7; --s-love:#F09A8A; --s-reno:#C9A98C; --s-friends:#8FB4D4; --s-self:#C9A0CF; color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -182,6 +186,10 @@ input[type=text],input[type=date],input[type=time],input[type=number],select,tex
 .day.is-today{border:2px solid var(--accent);padding:9px}
 .notice{border-color:var(--edge);color:var(--ink)}
 .field>label,.field>.lbl{color:var(--ink);opacity:.8}
+.card.secret{cursor:default;background:var(--sunk);border-style:dashed}
+.card.secret .t-title{color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.lock{width:12px;height:12px;flex:none}
+.allday{font-weight:600;color:var(--ink)}
 .who.letter{display:inline-grid;place-items:center;font-size:10px;font-weight:600;color:var(--accent-ink)}
 </style>
 </head>
@@ -191,7 +199,7 @@ input[type=text],input[type=date],input[type=time],input[type=number],select,tex
   <header>
     <div>
       <h1>Неделя на двоих</h1>
-      <div class="sub" id="weekNo">Работа · дом · спорт · мы · ремонт</div>
+      <div class="sub" id="weekNo"></div>
     </div>
     <div class="bar">
       <div class="seg" role="group" aria-label="Раздел">
@@ -231,6 +239,8 @@ const SPH = {
   sport:{label:"Спорт", c:"--s-sport"},
   love:{label:"Мы вдвоём", c:"--s-love"},
   reno:{label:"Ремонт", c:"--s-reno"},
+  friends:{label:"Друзья", c:"--s-friends"},
+  self:{label:"Личное", c:"--s-self"},
 };
 const DOW = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
 const MON = ["янв","фев","мар","апр","мая","июн","июл","авг","сен","окт","ноя","дек"];
@@ -239,7 +249,7 @@ const STATUS = {todo:"Надо сделать", doing:"В процессе", don
 const S = {
   db:null, me:null, local:false,
   members:new Set(), tasks:new Map(), series:new Map(), // tasks: key owner|id
-  profiles:{}, weekStart:monday(new Date()), filter:"all", view:"week", dragKey:null,
+  profiles:{}, people:[], weekStart:monday(new Date()), filter:"p0", view:"week", dragKey:null,
 };
 
 /* ---------- даты ---------- */
@@ -265,11 +275,21 @@ function color(s){return `var(${(SPH[s]||SPH.home).c})`}
 
 /* ---------- данные ---------- */
 const key=(o,id)=>o+"|"+id;
-function passes(t){
-  if(S.filter==="all")return true;
-  if(S.filter==="both")return t.who==="both";
-  return t.owner===S.filter || t.who==="both";
+// Чьё дело: индекс человека из настроек people. Пустой id = «второй человек» (все, кто не из списка).
+function personIdx(owner){
+  if(S.local)return 0;
+  const i=S.people.findIndex(p=>p.id&&"tg"+p.id===owner);
+  if(i>=0)return i;
+  const j=S.people.findIndex(p=>!p.id);
+  return j>=0?j:-1;
 }
+function passes(t){
+  if(S.filter==="both")return t.who==="both";
+  const n=+S.filter.slice(1);
+  return t.who!=="both"&&personIdx(t.owner)===n;
+}
+// чужой секрет: видно только слово «Секрет»
+function hidden(t){return !!t.secret&&!S.local&&t.owner!==S.me}
 // реальные дела (без пропущенных повторов)
 function realTasks(){return [...S.tasks.values()].filter(t=>!t.skipped)}
 // виртуальные экземпляры повторяющихся дел на конкретный день
@@ -281,7 +301,7 @@ function instancesOn(ds){
     if(s.end&&s.end<ds)continue;
     const id=s.id+"_"+ds;
     if(S.tasks.has(key(s.owner,id)))continue; // уже есть реальная запись
-    out.push({id,owner:s.owner,title:s.title,sphere:s.sphere,time:s.time||"",plan:s.plan||0,who:s.who||"me",note:s.note||"",
+    out.push({id,owner:s.owner,title:s.title,sphere:s.sphere,time:s.time||"",allDay:!!s.allDay,secret:!!s.secret,plan:s.plan||0,who:s.who||"me",note:s.note||"",
       date:ds,due:"",status:"todo",moved:0,seriesId:s.id,seriesDate:ds,virtual:true,createdAt:s.createdAt||0});
   }
   return out;
@@ -289,7 +309,7 @@ function instancesOn(ds){
 function tasksOn(ds){return realTasks().filter(t=>t.date===ds).concat(instancesOn(ds)).filter(passes)}
 function weekList(){const out=[];for(let i=0;i<7;i++)out.push(...tasksOn(iso(addDays(S.weekStart,i))));return out}
 function isOwn(t){return S.local||t.owner===S.me}
-function canEdit(t){return isOwn(t)||t.who==="both"}
+function canEdit(t){return !hidden(t)&&(isOwn(t)||t.who==="both")}
 function dueBroken(t){
   if(!t.due)return false;
   if(t.status==="done")return t.doneAt?iso(new Date(t.doneAt))>t.due:false;
@@ -342,12 +362,14 @@ function moveTo(t,date){
 
 /* ---------- люди ---------- */
 function personName(id){
-  if(S.local||id===S.me)return "Я";
+  if(S.local)return (S.people[0]&&S.people[0].name)||"Я";
+  const i=personIdx(id);
+  if(i>=0&&S.people[i].name)return S.people[i].name;
   const p=S.profiles[id];
   return (p&&p.name)||"Партнёрша";
 }
 function avatar(id){
-  const name=(S.profiles[id]&&S.profiles[id].name)||"?";
+  const name=personName(id)||"?";
   const bg=id===S.me?"var(--accent)":"var(--s-love)";
   return h("span",{class:"who letter",style:`background:${bg}`,title:id===S.me?"Я":name,text:name.slice(0,1).toUpperCase()});
 }
@@ -355,13 +377,26 @@ function avatar(id){
 /* ---------- рендер ---------- */
 function renderFilter(){
   const f=$("filter");f.replaceChildren();
-  const opts=[["all","Все"],[S.me||"local","Мои"]];
-  for(const id of S.members) if(id!==S.me) opts.push([id,personName(id)]);
-  opts.push(["both","Общие"]);
+  const opts=S.people.map((p,i)=>["p"+i,p.name||("Человек "+(i+1))]);
+  opts.push(["both","Общее"]);
   for(const [v,l] of opts)f.append(h("button",{"aria-pressed":String(S.filter===v),text:l,onclick:()=>{S.filter=v;render()}}));
 }
 
+function secretCard(t){
+  return h("article",{class:"card secret","aria-label":"Секрет"},
+    h("span",{}),
+    h("div",{class:"t-title"},lockIcon(),"Секрет"),
+    h("div",{class:"t-meta"},t.allDay?h("span",{class:"allday",text:"весь день"}):t.time?h("span",{class:"mono",text:t.time}):null));
+}
+function lockIcon(){
+  const ns="http://www.w3.org/2000/svg",svg=document.createElementNS(ns,"svg");
+  svg.setAttribute("viewBox","0 0 12 12");svg.setAttribute("class","lock");svg.setAttribute("aria-hidden","true");
+  const r=document.createElementNS(ns,"rect");r.setAttribute("x","2");r.setAttribute("y","5");r.setAttribute("width","8");r.setAttribute("height","6");r.setAttribute("rx","1.5");r.setAttribute("fill","currentColor");
+  const a=document.createElementNS(ns,"path");a.setAttribute("d","M4 5V3.6a2 2 0 0 1 4 0V5");a.setAttribute("fill","none");a.setAttribute("stroke","currentColor");a.setAttribute("stroke-width","1.4");
+  svg.append(r,a);return svg;
+}
 function card(t){
+  if(hidden(t))return secretCard(t);
   const editable=canEdit(t);
   const late=!t.virtual&&t.date&&t.status!=="done"&&t.date<today();
   const el=h("article",{class:"card "+(t.status||"todo")+(t.virtual?" virtual":""),draggable:editable?"true":null,tabindex:"0","aria-label":t.title});
@@ -371,7 +406,8 @@ function card(t){
   const meta=h("div",{class:"t-meta"},
     h("span",{class:"tag"},h("span",{class:"dot",style:`background:${color(t.sphere)}`}),SPH[t.sphere]?.label||""),
     t.seriesId?h("span",{class:"rep",title:"Повторяющееся дело",text:"↻"}):null,
-    t.time?h("span",{class:"mono",text:t.time}):null,
+    t.allDay?h("span",{class:"allday",text:"весь день"}):t.time?h("span",{class:"mono",text:t.time}):null,
+    t.secret?h("span",{class:"tag",title:"Секрет: вторая видит только слово «Секрет»"},lockIcon(),"секрет"):null,
     t.status==="done"&&t.fact?h("span",{class:"mono",text:fmtMin(t.fact)}):(t.plan?h("span",{class:"mono",text:"~"+fmtMin(t.plan)}):null),
     t.due?h("span",{class:"due"+(dueBroken(t)||(t.date&&t.date>t.due&&t.status!=="done")?" bad":""),text:"до "+short(t.due)}):null,
     t.status==="doing"?h("span",{text:"в процессе",style:"color:var(--accent)"}):null,
@@ -393,7 +429,8 @@ function dropZone(el,date){
   el.addEventListener("dragleave",()=>el.classList.remove("drop"));
   el.addEventListener("drop",e=>{e.preventDefault();el.classList.remove("drop");if(S.drag)moveTo(S.drag,date)});
 }
-const sortT=(a,b)=>(a.status==="done")-(b.status==="done")||(a.time||"99").localeCompare(b.time||"99")||(a.createdAt||0)-(b.createdAt||0);
+const tkey=t=>t.allDay?"00":(t.time||"99");
+const sortT=(a,b)=>(a.status==="done")-(b.status==="done")||tkey(a).localeCompare(tkey(b))||(a.createdAt||0)-(b.createdAt||0);
 
 function renderInbox(){
   const box=$("inbox");box.replaceChildren();
@@ -427,13 +464,13 @@ function renderWeek(){
 
 function renderStats(){
   const box=$("stats");box.replaceChildren();
-  const all=realTasks().filter(t=>t.date).filter(passes);
-  const wk=weekList();
+  const all=realTasks().filter(t=>t.date).filter(passes).filter(t=>!hidden(t));
+  const wk=weekList().filter(t=>!hidden(t));
   const done=wk.filter(t=>t.status==="done");
   const movedSum=wk.reduce((s,t)=>s+(t.moved||0),0);
   const factSum=done.reduce((s,t)=>s+(t.fact||t.plan||0),0);
   const ws=iso(S.weekStart),we=iso(addDays(S.weekStart,6));
-  const withDue=realTasks().filter(passes).filter(t=>t.due&&t.due>=ws&&t.due<=we);
+  const withDue=realTasks().filter(passes).filter(t=>!hidden(t)).filter(t=>t.due&&t.due>=ws&&t.due<=we);
   const broken=withDue.filter(dueBroken);
 
   box.append(h("div",{class:"panel"},
@@ -507,7 +544,7 @@ function renderStats(){
 function render(){
   const we=addDays(S.weekStart,6);
   $("weekLabel").textContent=`${short(iso(S.weekStart))} – ${short(iso(we))}`;
-  $("weekNo").textContent=`Неделя ${isoWeek(S.weekStart)} · работа, дом, спорт, мы, ремонт`;
+  $("weekNo").textContent=`Неделя ${isoWeek(S.weekStart)}`;
   $("tabWeek").setAttribute("aria-pressed",String(S.view==="week"));
   $("tabStats").setAttribute("aria-pressed",String(S.view==="stats"));
   $("weekView").hidden=S.view!=="week";$("statsView").hidden=S.view!=="stats";
@@ -558,7 +595,12 @@ function openEditor(t,date){
   const syncDate=()=>{dateI.disabled=!editable||noDate.checked;if(noDate.checked)dateI.value=""};
   noDate.addEventListener("change",()=>{if(!noDate.checked&&!dateI.value)dateI.value=today();syncDate()});syncDate();
   const dueI=h("input",{type:"date",id:"f-due",value:d.due||"",disabled:!editable});
-  const timeI=h("input",{type:"time",id:"f-time",value:d.time||"",disabled:!editable});
+  const timeI=h("input",{type:"time",id:"f-time",value:d.time||"",disabled:!editable||!!d.allDay});
+  const allDayI=h("input",{type:"checkbox",id:"f-allday",checked:!!d.allDay,disabled:!editable});
+  allDayI.addEventListener("change",()=>{timeI.disabled=!editable||allDayI.checked;if(allDayI.checked)timeI.value=""});
+  // секрет: только для своих дел «Только я»
+  const secretI=h("input",{type:"checkbox",id:"f-secret",checked:!!d.secret,disabled:!own||d.who==="both"});
+  const syncSecret=()=>{secretI.disabled=!own||d.who==="both";if(d.who==="both")secretI.checked=false};
   const planI=h("input",{type:"number",id:"f-plan",min:"0",step:"5",value:d.plan||"",disabled:!editable});
   const factI=h("input",{type:"number",id:"f-fact",min:"0",step:"5",value:d.fact||"",disabled:!editable});
   const statusS=h("select",{id:"f-status",disabled:!editable},Object.entries(STATUS).map(([v,l])=>h("option",{value:v,selected:d.status===v},l)));
@@ -568,7 +610,7 @@ function openEditor(t,date){
 
   const sph=editable?chipGroup(Object.entries(SPH).map(([k,v])=>[k,v.label,color(k)]),d.sphere,v=>d.sphere=v)
     :h("div",{class:"chips"},h("span",{class:"chip","aria-pressed":"true"},h("span",{class:"dot",style:`background:${color(d.sphere)}`}),SPH[d.sphere]?.label));
-  const who=own?chipGroup([["me","Только я"],["both","Вместе"]],d.who,v=>d.who=v):h("div",{},d.who==="both"?"Вместе":personName(d.owner));
+  const who=own?chipGroup([["me","Только я"],["both","Вместе"]],d.who,v=>{d.who=v;syncSecret()}):h("div",{},d.who==="both"?"Вместе":personName(d.owner));
   const quick=editable?h("div",{class:"chips"},[15,30,60,90,120].map(m=>h("button",{type:"button",class:"chip",text:fmtMin(m),onclick:()=>{planI.value=m}}))):null;
 
   // Повтор: при создании — выбор дней; у экземпляра — ссылка на серию
@@ -587,7 +629,7 @@ function openEditor(t,date){
   const delZone=h("div",{class:"row"});
   let close;
   function collect(){
-    const n={...d,title:title.value.trim(),time:timeI.value,plan:+planI.value||0,status:statusS.value,note:note.value.trim(),due:dueI.value||""};
+    const n={...d,title:title.value.trim(),time:allDayI.checked?"":timeI.value,allDay:allDayI.checked,secret:own&&d.who!=="both"&&secretI.checked,plan:+planI.value||0,status:statusS.value,note:note.value.trim(),due:dueI.value||""};
     if(n.status==="done"){n.fact=+factI.value||n.plan||0;n.doneAt=d.doneAt||Date.now();n.doneBy=d.doneBy||S.me}else{n.doneAt=null;n.doneBy=null}
     const newDate=noDate.checked?"":(dateI.value||d.date||"");
     if(!isNew&&d.date&&newDate&&newDate>d.date&&n.status!=="done")n.moved=(d.moved||0)+1;
@@ -597,7 +639,7 @@ function openEditor(t,date){
       e.preventDefault();if(!editable)return close();
       const n=collect();if(!n.title){title.focus();return}
       if(isNew&&repeatDays.length){
-        saveSeries({id:"s"+newId(),owner:n.owner,title:n.title,sphere:n.sphere,time:n.time,plan:n.plan,who:n.who,note:n.note,days:repeatDays.sort(),start:n.date||today(),end:"",createdAt:Date.now()});
+        saveSeries({id:"s"+newId(),owner:n.owner,title:n.title,sphere:n.sphere,time:n.time,allDay:n.allDay,secret:n.secret,plan:n.plan,who:n.who,note:n.note,days:repeatDays.sort(),start:n.date||today(),end:"",createdAt:Date.now()});
         close();toast("Повторяющееся дело добавлено");return;
       }
       saveTask(n);close();toast(isNew?"Добавлено":"Сохранено")}},
@@ -612,13 +654,15 @@ function openEditor(t,date){
         h("label",{class:"check-row",for:"f-nodate"},noDate,"Без даты, решу позже")),
       h("div",{class:"field"},h("label",{for:"f-due",text:"Дедлайн (если есть)"}),dueI)),
     h("div",{class:"row"},
-      h("div",{class:"field"},h("label",{for:"f-time",text:"Время (если важно)"}),timeI),
+      h("div",{class:"field"},h("label",{for:"f-time",text:"Время (если важно)"}),timeI,
+        h("label",{class:"check-row",for:"f-allday"},allDayI,"Весь день")),
       h("div",{class:"field"},h("label",{for:"f-plan",text:"План, мин"}),planI)),
     quick,
     h("div",{class:"row"},
       h("div",{class:"field"},h("label",{for:"f-status",text:"Статус"}),statusS),
       factField),
-    h("div",{class:"field"},h("span",{class:"lbl",text:"Чьё"}),who),
+    h("div",{class:"field"},h("span",{class:"lbl",text:"Чьё"}),who,
+      own?h("label",{class:"check-row",for:"f-secret"},secretI,`Секрет: ${(S.people.find((p,i)=>i!==personIdx(S.me))||{}).name||"вторая"} увидит в календаре только слово «Секрет»`):null),
     h("div",{class:"field"},h("label",{for:"f-note",text:"Заметка"}),note),
     !isNew&&d.moved?h("div",{class:"muted",style:"font-size:13px",text:`Переносилось ${d.moved} раз(а)`}):null,
     d.status==="done"&&d.doneBy&&d.who==="both"?h("div",{class:"muted",style:"font-size:13px",text:`Закрыла: ${personName(d.doneBy)}`}):null,
@@ -719,11 +763,13 @@ function lockScreen(id){
     if(tg.colorScheme)document.documentElement.setAttribute("data-theme",tg.colorScheme);
     try{tg.onEvent("themeChanged",()=>document.documentElement.setAttribute("data-theme",tg.colorScheme))}catch(e){}
   }
+  const cfg=window.PLANNER_CONFIG||{};
+  S.people=(Array.isArray(cfg.people)&&cfg.people.length?cfg.people:[{id:"",name:"Я"}])
+    .map(p=>({id:String(p.id||"").trim(),name:String(p.name||"").trim()}));
   render();
   const tgUser=tg&&tg.initDataUnsafe&&tg.initDataUnsafe.user;
-  const cfg=window.PLANNER_CONFIG||{};
   if(!tgUser){goLocal("Открой планер через бота в Telegram, чтобы дела сохранялись. Сейчас это пробный режим: всё пропадёт после перезагрузки.");return}
-  const allowed=(cfg.allowed||[]).map(String).filter(x=>/^\d+$/.test(x));
+  const allowed=[...(cfg.allowed||[]),...S.people.map(p=>p.id)].map(String).filter(x=>/^\d+$/.test(x));
   if(allowed.length&&!allowed.includes(String(tgUser.id))){lockScreen(String(tgUser.id));return}
   if(!window.firebase||!cfg.firebase||String(cfg.firebase.apiKey).includes("ВСТАВЬ")){goLocal("База ещё не подключена: вставь настройки Firebase в начало файла (шаг 2 инструкции).");return}
 
@@ -739,6 +785,7 @@ function connect(tgUser,cfg){
   const root=fs.collection("planners").doc(cfg.space);
   S.db=root;
   S.me="tg"+tgUser.id;
+  S.filter="p"+Math.max(0,personIdx(S.me));
   const myName=[tgUser.first_name,tgUser.last_name].filter(Boolean).join(" ")||"Я";
   S.members.add(S.me);S.profiles[S.me]={name:myName};
   render();
