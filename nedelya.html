@@ -21,7 +21,7 @@ window.PLANNER_CONFIG = {
   // Чтобы пустить Алину, впиши её номер в кавычки вместо пустых: id: "123456789"
   people: [
     { id: "273709982", name: "Настя" },
-    { id: "", name: "Алина" }
+    { id: "498350454", name: "Алина" }
   ]
 };
 </script>
@@ -202,10 +202,6 @@ input[type=text],input[type=date],input[type=time],input[type=number],select,tex
       <div class="sub" id="weekNo"></div>
     </div>
     <div class="bar">
-      <div class="seg" role="group" aria-label="Раздел">
-        <button id="tabWeek" aria-pressed="true">Неделя</button>
-        <button id="tabStats" aria-pressed="false">Итоги</button>
-      </div>
       <div class="nav">
         <button class="icon-btn" id="prev" aria-label="Предыдущая неделя">‹</button>
         <span class="week-label mono" id="weekLabel"></span>
@@ -225,9 +221,6 @@ input[type=text],input[type=date],input[type=time],input[type=number],select,tex
   <section id="weekView" style="display:flex;flex-direction:column;gap:12px">
     <div class="inbox" id="inbox"></div>
     <div class="week-scroll"><div class="week" id="week"></div></div>
-  </section>
-  <section id="statsView" hidden>
-    <div class="stats" id="stats"></div>
   </section>
 </div>
 
@@ -286,7 +279,7 @@ function personIdx(owner){
 function passes(t){
   if(S.filter==="both")return t.who==="both";
   const n=+S.filter.slice(1);
-  return t.who!=="both"&&personIdx(t.owner)===n;
+  return t.who==="both"||personIdx(t.owner)===n;
 }
 // чужой секрет: видно только слово «Секрет»
 function hidden(t){return !!t.secret&&!S.local&&t.owner!==S.me}
@@ -412,7 +405,7 @@ function card(t){
     t.due?h("span",{class:"due"+(dueBroken(t)||(t.date&&t.date>t.due&&t.status!=="done")?" bad":""),text:"до "+short(t.due)}):null,
     t.status==="doing"?h("span",{text:"в процессе",style:"color:var(--accent)"}):null,
     t.moved?h("span",{class:"moved",title:"Сколько раз переносилось",text:"↷"+t.moved}):null,
-    S.local?null:h("span",{class:"who-pair"},avatar(t.owner),t.who==="both"?h("span",{class:"who",style:"background:var(--s-love)",title:"Вместе"}):null)
+    S.local?null:h("span",{class:"who-pair"},avatar(t.owner),t.who==="both"?h("span",{class:"who",style:"background:var(--s-love)",title:"Общее"}):null)
   );
   el.append(chk,h("div",{class:"t-title",text:t.title}),meta);
   if(late&&editable)el.append(h("button",{class:"late-btn",text:"Перенести на сегодня",onclick:e=>{e.stopPropagation();moveTo(t,today())}}));
@@ -462,94 +455,12 @@ function renderWeek(){
   }
 }
 
-function renderStats(){
-  const box=$("stats");box.replaceChildren();
-  const all=realTasks().filter(t=>t.date).filter(passes).filter(t=>!hidden(t));
-  const wk=weekList().filter(t=>!hidden(t));
-  const done=wk.filter(t=>t.status==="done");
-  const movedSum=wk.reduce((s,t)=>s+(t.moved||0),0);
-  const factSum=done.reduce((s,t)=>s+(t.fact||t.plan||0),0);
-  const ws=iso(S.weekStart),we=iso(addDays(S.weekStart,6));
-  const withDue=realTasks().filter(passes).filter(t=>!hidden(t)).filter(t=>t.due&&t.due>=ws&&t.due<=we);
-  const broken=withDue.filter(dueBroken);
-
-  box.append(h("div",{class:"panel"},
-    h("h2",{text:"Неделя в цифрах"}),
-    h("div",{class:"tiles"},
-      h("div",{class:"tile"},h("div",{class:"n",text:wk.length?Math.round(done.length/wk.length*100)+"%":"—"}),h("div",{class:"l",text:`сделано ${done.length} из ${wk.length}`})),
-      h("div",{class:"tile"},h("div",{class:"n",text:String(movedSum)}),h("div",{class:"l",text:"переносов"})),
-      h("div",{class:"tile"},h("div",{class:"n",text:withDue.length?`${broken.length}/${withDue.length}`:"—"}),h("div",{class:"l",text:"сроков сорвано"})),
-      h("div",{class:"tile"},h("div",{class:"n",text:fmtH(factSum)}),h("div",{class:"l",text:"потрачено на сделанное"}))
-    ),
-    wk.length?null:h("p",{class:"muted",style:"margin:0",text:"На этой неделе пока нет дел. Добавь первое кнопкой «+ Дело»."})
-  ));
-
-  // Баланс сфер
-  const per={};for(const s in SPH)per[s]={fact:0,plan:0,n:0,d:0};
-  for(const t of wk){const p=per[t.sphere]||per.home;p.n++;p.plan+=t.plan||0;if(t.status==="done"){p.d++;p.fact+=t.fact||t.plan||0}}
-  const maxM=Math.max(60,...Object.values(per).map(p=>Math.max(p.fact,p.plan)));
-  const lastDone={};for(const t of all)if(t.status==="done"){if(!lastDone[t.sphere]||t.date>lastDone[t.sphere])lastDone[t.sphere]=t.date}
-  const td=today();
-  const bal=h("div",{class:"panel"},h("h2",{text:"Баланс сфер"}),
-    h("div",{class:"legend"},h("span",{},h("i",{}),"сделано"),h("span",{},h("i",{class:"p"}),"запланировано")));
-  for(const [s,meta] of Object.entries(SPH)){
-    const p=per[s];
-    bal.append(h("div",{class:"sph-row"},
-      h("span",{class:"tag"},h("span",{class:"dot",style:`background:${color(s)}`}),meta.label),
-      h("div",{class:"track",role:"img","aria-label":`${meta.label}: сделано ${fmtMin(p.fact)} из запланированных ${fmtMin(p.plan)}`},
-        h("div",{class:"fill plan",style:`width:${p.plan/maxM*100}%;background:${color(s)}`}),
-        h("div",{class:"fill",style:`width:${p.fact/maxM*100}%;background:${color(s)}`})),
-      h("span",{class:"mono muted",style:"font-size:12px",text:`${p.d}/${p.n}`})));
-    const last=lastDone[s];
-    const gap=last?daysBetween(last,td):null;
-    const txt=last==null?"ещё ни разу не отмечено":gap<=0?"последний раз: сегодня":`последний раз: ${gap} дн. назад`;
-    bal.append(h("div",{class:"since"+((last==null&&all.length)||gap>=7?" warn":""),text:txt}));
-  }
-  box.append(bal);
-
-  // Переносы и сроки
-  const movedList=all.filter(t=>t.moved>0).sort((a,b)=>b.moved-a.moved).slice(0,6);
-  const mp=h("div",{class:"panel"},h("h2",{text:"Чаще всего откладывается"}));
-  if(movedList.length){
-    mp.append(h("ul",{class:"list"},movedList.map(t=>h("li",{},
-      h("span",{class:"dot",style:`background:${color(t.sphere)}`}),
-      h("span",{class:"grow",text:t.title}),
-      h("span",{class:"moved mono",text:"↷"+t.moved}),
-      h("span",{class:"muted",style:"font-size:12px",text:t.status==="done"?"сделано":dueBroken(t)?"срок прошёл":"висит"})))));
-  } else mp.append(h("p",{class:"muted",style:"margin:0",text:"Пока ничего не переносилось. Перенос считается, когда дело сдвигают на более поздний день."}));
-  box.append(mp);
-
-  // Подсказки
-  const hints=[];
-  const ms={};for(const t of all){ms[t.sphere]=(ms[t.sphere]||0)+(t.moved||0)}
-  const worst=Object.entries(ms).sort((a,b)=>b[1]-a[1])[0];
-  if(worst&&worst[1]>=3)hints.push(`Больше всего переносов в сфере «${SPH[worst[0]].label}» (${worst[1]}). Возможно, дела там слишком крупные: попробуй дробить их на шаги по 30–60 минут.`);
-  if(broken.length>=2)hints.push(`На этой неделе сорвано ${broken.length} срока. Ставь день выполнения на 1–2 дня раньше дедлайна, чтобы был запас на перенос.`);
-  for(const s in SPH){
-    const ds=all.filter(t=>t.sphere===s&&t.status==="done"&&t.plan&&t.fact);
-    if(ds.length>=3){const r=ds.reduce((a,t)=>a+t.fact,0)/ds.reduce((a,t)=>a+t.plan,0);
-      if(r>=1.25)hints.push(`«${SPH[s].label}» в среднем занимает в ${r.toFixed(1).replace(".",",")} раза больше запланированного. Закладывай время с запасом.`);
-      if(r<=0.75)hints.push(`«${SPH[s].label}» обычно идёт быстрее плана. Можно планировать плотнее.`);}
-  }
-  const empty=Object.keys(SPH).filter(s=>per[s].n===0);
-  if(wk.length&&empty.length)hints.push(`На этой неделе ничего не запланировано в: ${empty.map(s=>SPH[s].label).join(", ")}.`);
-  const inboxN=realTasks().filter(t=>!t.date&&t.status!=="done").filter(passes).length;
-  if(inboxN>=8)hints.push(`Без даты лежит ${inboxN} дел. Раз в неделю разбирай их: что-то назначь на день, а что-то, может, и не нужно.`);
-  const busy=[...Array(7)].map((_,i)=>[i,tasksOn(iso(addDays(S.weekStart,i))).reduce((a,t)=>a+(t.plan||0),0)]).sort((a,b)=>b[1]-a[1])[0];
-  if(busy&&busy[1]>=8*60)hints.push(`${DOW[busy[0]]} перегружен: запланировано ${fmtH(busy[1])}. Часть дел можно перетащить на соседние дни.`);
-  box.append(h("div",{class:"panel"},h("h2",{text:"Что можно улучшить"}),
-    hints.length?hints.map(x=>h("p",{class:"hint",style:"margin:0",text:x})):h("p",{class:"muted",style:"margin:0",text:"Подсказки появятся, когда накопится немного истории: отмечай факт времени, когда закрываешь дела."})));
-}
-
 function render(){
   const we=addDays(S.weekStart,6);
   $("weekLabel").textContent=`${short(iso(S.weekStart))} – ${short(iso(we))}`;
   $("weekNo").textContent=`Неделя ${isoWeek(S.weekStart)}`;
-  $("tabWeek").setAttribute("aria-pressed",String(S.view==="week"));
-  $("tabStats").setAttribute("aria-pressed",String(S.view==="stats"));
-  $("weekView").hidden=S.view!=="week";$("statsView").hidden=S.view!=="stats";
   renderFilter();
-  if(S.view==="week")renderWeek();else renderStats();
+  renderWeek();
 }
 
 /* ---------- модалки ---------- */
@@ -598,7 +509,7 @@ function openEditor(t,date){
   const timeI=h("input",{type:"time",id:"f-time",value:d.time||"",disabled:!editable||!!d.allDay});
   const allDayI=h("input",{type:"checkbox",id:"f-allday",checked:!!d.allDay,disabled:!editable});
   allDayI.addEventListener("change",()=>{timeI.disabled=!editable||allDayI.checked;if(allDayI.checked)timeI.value=""});
-  // секрет: только для своих дел «Только я»
+  // секрет: только для своих дел «Моё»
   const secretI=h("input",{type:"checkbox",id:"f-secret",checked:!!d.secret,disabled:!own||d.who==="both"});
   const syncSecret=()=>{secretI.disabled=!own||d.who==="both";if(d.who==="both")secretI.checked=false};
   const planI=h("input",{type:"number",id:"f-plan",min:"0",step:"5",value:d.plan||"",disabled:!editable});
@@ -610,7 +521,7 @@ function openEditor(t,date){
 
   const sph=editable?chipGroup(Object.entries(SPH).map(([k,v])=>[k,v.label,color(k)]),d.sphere,v=>d.sphere=v)
     :h("div",{class:"chips"},h("span",{class:"chip","aria-pressed":"true"},h("span",{class:"dot",style:`background:${color(d.sphere)}`}),SPH[d.sphere]?.label));
-  const who=own?chipGroup([["me","Только я"],["both","Вместе"]],d.who,v=>{d.who=v;syncSecret()}):h("div",{},d.who==="both"?"Вместе":personName(d.owner));
+  const who=own?chipGroup([["me","Моё"],["both","Общее"]],d.who,v=>{d.who=v;syncSecret()}):h("div",{},d.who==="both"?"Общее":personName(d.owner));
   const quick=editable?h("div",{class:"chips"},[15,30,60,90,120].map(m=>h("button",{type:"button",class:"chip",text:fmtMin(m),onclick:()=>{planI.value=m}}))):null;
 
   // Повтор: при создании — выбор дней; у экземпляра — ссылка на серию
@@ -645,7 +556,7 @@ function openEditor(t,date){
       saveTask(n);close();toast(isNew?"Добавлено":"Сохранено")}},
     h("h3",{text:isNew?"Новое дело":"Дело"}),
     editable?(!own?h("div",{class:"ro-note",text:`Это общее дело, его добавила ${personName(d.owner)}. Менять и закрывать его можете обе.`}):null)
-      :h("div",{class:"ro-note",text:"Это дело добавила не ты, поэтому его можно только посмотреть. Если хотите делать его вместе, пусть автор поставит «Вместе»."}),
+      :h("div",{class:"ro-note",text:"Это дело добавила не ты, поэтому его можно только посмотреть. Если хотите делать его вместе, пусть автор отметит его как «Общее»."}),
     h("div",{class:"field"},h("label",{for:"f-title",text:"Что сделать"}),title),
     h("div",{class:"field"},h("span",{class:"lbl",text:"Сфера"}),sph),
     repeatBlock,
@@ -705,7 +616,7 @@ function openSeries(s){
     h("div",{class:"row"},
       h("div",{class:"field"},h("label",{for:"s-time",text:"Время"}),timeI),
       h("div",{class:"field"},h("label",{for:"s-plan",text:"План, мин"}),planI)),
-    own?h("div",{class:"field"},h("span",{class:"lbl",text:"Чьё"}),chipGroup([["me","Только я"],["both","Вместе"]],d.who||"me",v=>d.who=v)):null,
+    own?h("div",{class:"field"},h("span",{class:"lbl",text:"Чьё"}),chipGroup([["me","Моё"],["both","Общее"]],d.who||"me",v=>d.who=v)):null,
     h("div",{class:"field"},h("label",{for:"s-note",text:"Заметка"}),note),
     h("div",{class:"actions"},own?stopZone:h("span"),h("button",{type:"submit",class:"primary",text:"Сохранить"})));
   if(own){
@@ -734,8 +645,6 @@ function openDone(t){
 $("prev").onclick=()=>{S.weekStart=addDays(S.weekStart,-7);render()};
 $("next").onclick=()=>{S.weekStart=addDays(S.weekStart,7);render()};
 $("todayBtn").onclick=()=>{S.weekStart=monday(new Date());render()};
-$("tabWeek").onclick=()=>{S.view="week";render()};
-$("tabStats").onclick=()=>{S.view="stats";render()};
 dropZone($("inbox"),"");
 $("addBtn").onclick=()=>{const td=today(),ws=iso(S.weekStart),we=iso(addDays(S.weekStart,6));openEditor(null,td>=ws&&td<=we?td:ws)};
 
